@@ -1,8 +1,11 @@
 package cmd
 
 import (
+	"errors"
+	"fmt"
 	"os"
 
+	"github.com/charmbracelet/huh"
 	"github.com/omar0ali/watchd/internal/api"
 	"github.com/spf13/cobra"
 )
@@ -24,7 +27,12 @@ changes.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		path, err := configPath(true)
 		if err != nil {
-			return err
+			if flagConfig != "" || !interactive() {
+				return err
+			}
+			if path, err = offerCreate(); err != nil || path == "" {
+				return err
+			}
 		}
 		if err := ensureDaemon(); err != nil {
 			return err
@@ -38,6 +46,37 @@ changes.`,
 		}
 		return nil
 	},
+}
+
+// offerCreate runs the init flow when `up` finds no config, then asks
+// whether to start. It returns the new config's path, or "" to stop here.
+func offerCreate() (string, error) {
+	cwd, err := os.Getwd()
+	if err != nil {
+		return "", err
+	}
+	c, err := createConfig(cwd, createOptions{
+		interactive: true,
+		intro:       "No watchd.lua found in " + tildePath(cwd) + " or its parents. Let's create one.",
+	})
+	if errors.Is(err, huh.ErrUserAborted) {
+		fmt.Println("cancelled; nothing was written")
+		return "", nil
+	}
+	if err != nil {
+		return "", err
+	}
+	if len(c.apps) == 0 {
+		fmt.Println(dimStyle.Render("  Edit it, then run watchd up again."))
+		return "", nil
+	}
+
+	start := true
+	if err := huh.NewConfirm().Title("Start the project now?").Value(&start).Run(); err != nil || !start {
+		fmt.Println(dimStyle.Render("  Start it later with: watchd up"))
+		return "", nil
+	}
+	return c.path, nil
 }
 
 var downCmd = &cobra.Command{

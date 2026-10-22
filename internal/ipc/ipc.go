@@ -130,6 +130,12 @@ var ErrNoDaemon = errors.New("daemon is not running (start it with: watchd on)")
 
 // Do sends req and calls fn for every message until the response is done.
 func Do(socket string, req *api.Request, fn func(api.Message) error) error {
+	return DoContext(context.Background(), socket, req, fn)
+}
+
+// DoContext is Do, but closes the connection when ctx is cancelled, which
+// ends a streaming request such as logs -f. It then returns ctx.Err().
+func DoContext(ctx context.Context, socket string, req *api.Request, fn func(api.Message) error) error {
 	conn, err := net.Dial("unix", socket)
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) || errors.Is(err, syscall.ECONNREFUSED) {
@@ -138,6 +144,8 @@ func Do(socket string, req *api.Request, fn func(api.Message) error) error {
 		return err
 	}
 	defer conn.Close()
+	stop := context.AfterFunc(ctx, func() { conn.Close() })
+	defer stop()
 
 	if err := json.NewEncoder(conn).Encode(req); err != nil {
 		return err
@@ -147,6 +155,9 @@ func Do(socket string, req *api.Request, fn func(api.Message) error) error {
 	for {
 		var m api.Message
 		if err := dec.Decode(&m); err != nil {
+			if ctx.Err() != nil {
+				return ctx.Err()
+			}
 			if errors.Is(err, io.EOF) {
 				return fmt.Errorf("daemon closed the connection unexpectedly")
 			}

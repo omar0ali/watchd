@@ -39,6 +39,10 @@ worker | 2026/10/22 19:35:06 processed job #1
   project or app from anywhere (`watchd stop shop/worker`).
 - **The config is code**: variables, loops, conditionals, env lookups, and hooks that decide
   whether a change should restart an app.
+- **Quick setup**: `watchd init` (or a plain `watchd up`) looks at your project and writes a
+  ready-to-run config for common stacks.
+- **A live dashboard**: `watchd ui` shows every project and app, with keys to restart, stop,
+  start and view logs.
 - **A single static binary**: no Node.js, Python, Docker or tmux needed.
 
 > watchd runs processes directly on your machine. It does **not** isolate them the way
@@ -179,12 +183,45 @@ cd ~/work/shop
 watchd init
 ```
 
-This writes `watchd.lua`, a commented starter config. It's a normal Lua file, so commit it
-with your code so your whole team gets the same setup.
+watchd looks at the project folder and its immediate subfolders for a few common project
+types, and pre-fills an app for each one it finds:
+
+| It finds | It adds |
+| --- | --- |
+| `Procfile` | One app per line (when there is a Procfile, nothing else is detected) |
+| `go.mod` and a `main` package | `go run .`, plus one app per `cmd/<name>/main.go` |
+| `package.json` with a `dev` or `start` script | `npm run dev`, or `pnpm`, `yarn` or `bun` based on the lockfile |
+| `Cargo.toml` | `cargo run` |
+| `manage.py` | Django `runserver --noreload`, using `.venv` if there is one |
+
+In a terminal, you can confirm the project name (it defaults to the folder name, cleaned up,
+so `My App (old)` becomes `my-app-old`) and untick apps you don't want:
+
+```console
+┃ Project name
+┃ > shop
+
+  Apps found
+  > ✓ api  go run .      ./api
+    ✓ web  pnpm run dev  ./web
+
+  Create ~/work/shop/watchd.lua?   Create   Cancel
+```
+
+If nothing is recognised, you get a commented template to fill in. `watchd init --yes` skips
+the questions (useful in scripts), and `--name` sets the project name.
+
+**Shortcut:** running `watchd up` in a folder without a config offers this same setup, then
+asks whether to start the project. When there's no terminal to ask in, as in scripts and CI,
+it never creates files on its own.
+
+The result is a normal Lua file. Commit it with your code so your whole team gets the same
+setup.
 
 ### 2. Describe your apps
 
-An **app** is any long-running command. Replace the starter content with your own:
+Check what was generated and adjust it. An **app** is any long-running command. A config
+looks like this:
 
 ```lua
 return {
@@ -254,6 +291,28 @@ watchd logs api -f       # follow one app
 
 Lines starting with `»` come from watchd itself: starts, exits, restarts, changed files.
 
+Or open the live dashboard:
+
+```sh
+watchd ui
+```
+
+```
+ watchd   2 project(s) · 3/3 apps running
+
+ shop  ~/work/shop/watchd.lua
+❯ ● api    running (healthy)   pid 41233   up 3m12s
+  ● web    running             pid 41260   up 3m11s
+
+ blog  ~/work/blog/watchd.lua
+  ● clock  running             pid 41302   up 40s
+
+ ↑/↓ move · enter logs · r restart · s stop/start · R restart project · c reload · d down · q quit
+```
+
+It refreshes every second. Press `enter` on an app to follow its logs (`esc` goes back). `q`
+closes the dashboard, and your apps keep running.
+
 ### 6. Write code
 
 Edit a `.go` file and save. watchd notices, waits for you to stop saving (300ms by default),
@@ -305,7 +364,9 @@ cd examples/microservices && watchd up -f    # then open http://localhost:3000
 
 | I want to… | Run |
 | --- | --- |
+| Create a config for this project | `watchd init` |
 | Start the project in this directory | `watchd up` |
+| Watch and control everything live | `watchd ui` |
 | Start it and watch the output | `watchd up -f` |
 | Start only some apps | `watchd up api worker` |
 | See what's running here / everywhere | `watchd ps` / `watchd ps -a` |
@@ -488,7 +549,7 @@ name, and you can set `name = "..."` to override it.
 
 | Command | What it does |
 | --- | --- |
-| `watchd init [--force]` | Create a starter `watchd.lua` in the current directory. |
+| `watchd init [-y] [--name N] [--force]` | Create `watchd.lua`, pre-filled with the apps found in the project. `-y` skips the questions. |
 | `watchd validate` | Load the config, report **all** errors at once, and summarise the apps. |
 | `watchd up [APP...] [-f]` | Load the project and start its apps (only the named ones, plus their dependencies). Safe to repeat. `-f` follows the logs afterwards. |
 | `watchd down [PROJECT...] [-a]` | Stop a project's apps and unload it. `-a` does every project. |
@@ -498,6 +559,7 @@ name, and you can set `name = "..."` to override it.
 | `watchd restart [APP...]` | Restart apps, starting them if they are stopped. With no apps, restarts every running app. |
 | `watchd ps [PROJECT] [-a] [--json]` | App state, PID, uptime and restart count. Shows the current project if it is loaded, otherwise every project. |
 | `watchd ls [--json]` | List loaded projects. |
+| `watchd ui` | Live full-screen dashboard of every project and app, with keys to restart, stop or start, follow logs, reload and unload. |
 | `watchd logs [APP...] [-f] [-n N] [-t]` | Recent output (the last 100 lines by default; `-n 0` shows everything kept). `-f` follows, `-t` adds timestamps. Lines marked `»` come from watchd itself. |
 | `watchd on` / `watchd off` | Start the daemon / stop every project and exit the daemon. |
 | `watchd info` | Daemon status, socket path and log file location. |
@@ -809,7 +871,8 @@ file named in the message).
 
 | Package | Responsibility |
 | --- | --- |
-| `cmd/` | Cobra CLI. Turns commands into requests and formats the output. |
+| `cmd/` | Cobra CLI. Turns commands into requests and formats the output. `ui.go` is the Bubble Tea dashboard, and `init.go` holds the Huh prompts. |
+| `internal/detect` | Recognises common project types and renders a starter `watchd.lua`. |
 | `internal/config` | Lua sandbox, strict parsing and validation, dotenv files, hooks. |
 | `internal/supervisor` | Per-app supervision loop, process groups, restart policies, health checks, log buffers. |
 | `internal/watcher` | Recursive fsnotify watching, glob matching, debouncing. |

@@ -196,7 +196,7 @@ func parseProject(top *lua.LTable, path, dir string) (*Project, error) {
 	p := &Project{Path: path, Dir: dir}
 	p.Name = t.str("name")
 	if p.Name == "" {
-		p.Name = filepath.Base(dir)
+		p.Name = SanitizeName(filepath.Base(dir))
 	}
 	if !validName(p.Name) {
 		errs.add("project name %q: use letters, digits, '.', '_' or '-'", p.Name)

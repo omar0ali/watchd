@@ -125,6 +125,30 @@ var nameRe = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9_.-]*$`)
 
 func validName(s string) bool { return nameRe.MatchString(s) }
 
+// ValidName reports whether s can be used as a project or app name.
+func ValidName(s string) bool { return validName(s) }
+
+// SanitizeName turns any string (usually a directory name) into a valid
+// project or app name: "My App (old)" becomes "my-app-old".
+func SanitizeName(s string) string {
+	var b strings.Builder
+	dash := false
+	for _, r := range strings.ToLower(s) {
+		if (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') || r == '_' || r == '.' {
+			b.WriteRune(r)
+			dash = false
+		} else if !dash && b.Len() > 0 {
+			b.WriteByte('-')
+			dash = true
+		}
+	}
+	name := strings.Trim(b.String(), "-._")
+	if name == "" {
+		return "project"
+	}
+	return name
+}
+
 // errList collects validation errors so users see all problems at once.
 type errList []string
 
