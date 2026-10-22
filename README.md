@@ -64,18 +64,37 @@ worker | 2026/10/22 19:35:06 processed job #1
 - [Running the daemon as a service](#running-the-daemon-as-a-service)
 - [Troubleshooting](#troubleshooting)
 - [Architecture](#architecture)
-- [Development](#development)
+- [Development](#development) · [Releasing](#releasing)
 - [Limitations and roadmap](#limitations-and-roadmap)
 
 ---
 
 ## Install
 
-**Requirements:** Linux or macOS, and [Go 1.25 or newer](https://go.dev/dl/) to build it.
-watchd is a single binary with no runtime dependencies. You don't need Lua installed, because
-it is built in.
+**Requirements:** Linux or macOS (Intel or ARM). watchd is a single binary with no runtime
+dependencies. You don't need Lua installed, because it is built in. Go is only needed to build
+from source.
 
-### Option 1: `go install`
+### Option 1: download a prebuilt binary
+
+Every release on the [Releases page](https://github.com/omar0ali/watchd/releases) has archives
+for Linux and macOS on amd64 and arm64. For example, to install the latest release on Linux
+amd64 into `~/.local/bin`:
+
+```sh
+VERSION=$(curl -fsSL https://api.github.com/repos/omar0ali/watchd/releases/latest | grep -m1 '"tag_name"' | cut -d'"' -f4)
+curl -fsSLO "https://github.com/omar0ali/watchd/releases/download/${VERSION}/watchd_${VERSION#v}_linux_amd64.tar.gz"
+tar xzf "watchd_${VERSION#v}_linux_amd64.tar.gz" watchd
+install -m 755 watchd ~/.local/bin/
+```
+
+Replace `linux_amd64` with `linux_arm64`, `darwin_amd64` or `darwin_arm64` to match your
+machine. Each release also has a `checksums.txt` you can check the download against with
+`sha256sum -c --ignore-missing checksums.txt`.
+
+### Option 2: `go install`
+
+Requires [Go 1.25 or newer](https://go.dev/dl/).
 
 ```sh
 go install github.com/omar0ali/watchd@latest
@@ -83,7 +102,7 @@ go install github.com/omar0ali/watchd@latest
 
 This puts the binary in `$(go env GOPATH)/bin`, usually `~/go/bin`.
 
-### Option 2: build from source
+### Option 3: build from source
 
 ```sh
 git clone https://github.com/omar0ali/watchd.git
@@ -812,6 +831,33 @@ To try it without touching your real daemon, point it at separate directories:
 ```sh
 export WATCHD_RUNTIME_DIR=/tmp/watchd-dev XDG_STATE_HOME=/tmp/watchd-dev-state
 ```
+
+### Releasing
+
+Releases are fully automated. Every push to `main` runs the tests on Linux and macOS. If they
+pass, [`.github/workflows/release.yml`](.github/workflows/release.yml) works out the next
+version from the commit messages since the last tag, pushes that tag, and publishes a GitHub
+release with binaries, checksums and release notes grouped by type.
+
+The version comes from the commit messages, following
+[Conventional Commits](https://www.conventionalcommits.org):
+
+| Commit message | Example | Release |
+| --- | --- | --- |
+| `feat!:`, `fix!:`, or a `BREAKING CHANGE:` footer | `feat!: rename restart policies` | major (minor while below v1.0.0) |
+| `feat:` | `feat(logs): add --since flag` | minor: `v0.2.0` → `v0.3.0` |
+| `fix:`, `perf:`, `refactor:` or no prefix | `fix: crash on empty env_file` | patch: `v0.2.0` → `v0.2.1` |
+| only `docs:`, `ci:`, `chore:`, `test:`, `style:`, `build:` | `docs: add recipes` | no release |
+
+- The first release is `v0.1.0`.
+- Add `[skip release]` to a commit message to push without releasing.
+- To release by hand (for example, to force a version bump), go to **Actions → Release →
+  Run workflow** and pick `patch`, `minor` or `major`.
+- Preview the next version locally with `scripts/next-version.sh`, and test the build without
+  publishing with `goreleaser release --snapshot --clean`.
+
+Dependabot opens weekly PRs for Go modules (`fix(deps):`, which ship in a patch release) and
+GitHub Actions (`ci:`, which don't release).
 
 ## Limitations and roadmap
 

@@ -1,0 +1,78 @@
+# Every push to main: run the tests, work out the next version from the
+# commit messages (see scripts/next-version.sh), tag it, and publish a GitHub
+# release with binaries and grouped release notes. Pushes with only docs:,
+# ci:, chore:, test:, style: or build: commits don't release.
+#
+# To force a release: Actions -> Release -> Run workflow, and pick a bump.
+name: Release
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      bump:
+        description: Version bump
+        type: choice
+        options: [auto, patch, minor, major]
+        default: auto
+
+permissions:
+  contents: read
+
+# Never run two releases at once; queue them so each push gets its version.
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  test:
+    uses: ./.github/workflows/ci.yml
+
+  release:
+    needs: test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # create the tag and the release
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # full history and tags, to compute the version
+
+      - name: Work out the next version
+        id: version
+        env:
+          BUMP: ${{ inputs.bump || 'auto' }}
+        run: |
+          next=$(scripts/next-version.sh "$BUMP")
+          if [ -z "$next" ]; then
+            echo "No release-worthy commits since the last tag; skipping release." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "Releasing **$next**" >> "$GITHUB_STEP_SUMMARY"
+          fi
+          echo "tag=$next" >> "$GITHUB_OUTPUT"
+
+      - name: Create and push the tag
+        if: steps.version.outputs.tag != ''
+        env:
+          TAG: ${{ steps.version.outputs.tag }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag -a "$TAG" -m "Release $TAG"
+          git push origin "$TAG"
+
+      - uses: actions/setup-go@v5
+        if: steps.version.outputs.tag != ''
+        with:
+          go-version-file: go.mod
+
+      - name: Build and publish the release
+        if: steps.version.outputs.tag != ''
+        uses: goreleaser/goreleaser-action@v6
+        with:
+          distribution: goreleaser
+          version: "~> v2"
+          args: release --clean
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

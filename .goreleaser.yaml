@@ -1,0 +1,51 @@
+# Builds release binaries and the GitHub release. Run by .github/workflows/release.yml.
+# Try it locally without publishing: goreleaser release --snapshot --clean
+version: 2
+
+project_name: watchd
+
+builds:
+  - main: .
+    binary: watchd
+    env:
+      - CGO_ENABLED=0
+    goos: [linux, darwin]
+    goarch: [amd64, arm64]
+    flags: [-trimpath]
+    ldflags:
+      - -s -w -X github.com/omar0ali/watchd/internal/version.Version={{ .Tag }}
+
+archives:
+  - formats: [tar.gz]
+    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    files:
+      - README.md
+
+checksum:
+  name_template: checksums.txt
+
+changelog:
+  use: git
+  sort: asc
+  filters:
+    exclude:
+      - '^(docs|ci|chore|test|style|build)(\(.+\))?:'
+      - '^Merge '
+  groups:
+    - title: Breaking changes
+      regexp: '^[a-z]+(\(.+\))?!:'
+      order: 0
+    - title: Features
+      regexp: '^feat(\(.+\))?:'
+      order: 1
+    - title: Bug fixes
+      regexp: '^fix(\(.+\))?:'
+      order: 2
+    - title: Other changes
+      order: 999
+
+release:
+  footer: |
+    **Install:** download the archive for your system below, extract it, and move
+    `watchd` onto your `PATH`, or run `go install github.com/omar0ali/watchd@{{ .Tag }}`.
+    Verify downloads against `checksums.txt`.
