@@ -50,7 +50,9 @@ worker | 2026/10/22 19:35:06 processed job #1
 ## Contents
 
 - [Install](#install)
-- [Quick start](#quick-start)
+- [Usage guide](#usage-guide): your first project, step by step
+- [Everyday commands](#everyday-commands)
+- [Recipes](#recipes): Node, Python, databases, monorepos and more
 - [Working with many projects](#working-with-many-projects)
 - [CLI reference](#cli-reference)
 - [Configuration](#configuration)
@@ -60,6 +62,7 @@ worker | 2026/10/22 19:35:06 processed job #1
 - [How supervision works](#how-supervision-works)
 - [Security](#security)
 - [Running the daemon as a service](#running-the-daemon-as-a-service)
+- [Troubleshooting](#troubleshooting)
 - [Architecture](#architecture)
 - [Development](#development)
 - [Limitations and roadmap](#limitations-and-roadmap)
@@ -68,80 +71,370 @@ worker | 2026/10/22 19:35:06 processed job #1
 
 ## Install
 
-Requires Go 1.25+ and runs on Linux and macOS.
+**Requirements:** Linux or macOS, and [Go 1.25 or newer](https://go.dev/dl/) to build it.
+watchd is a single binary with no runtime dependencies. You don't need Lua installed, because
+it is built in.
+
+### Option 1: `go install`
 
 ```sh
 go install github.com/omar0ali/watchd@latest
 ```
 
-Or from a clone:
+This puts the binary in `$(go env GOPATH)/bin`, usually `~/go/bin`.
+
+### Option 2: build from source
 
 ```sh
-scripts/run.sh install   # or: scripts/run.sh build  ->  ./build/watchd
+git clone https://github.com/omar0ali/watchd.git
+cd watchd
+scripts/run.sh install          # go install, with the version number stamped in
 ```
 
-Shell completion (it completes project and app names too):
+Or build the binary and put it wherever you like:
 
 ```sh
+scripts/run.sh build            # creates ./build/watchd
+install -m 755 build/watchd ~/.local/bin/
+```
+
+### Put it on your PATH
+
+If `watchd` is "command not found" after installing, add Go's bin directory to your `PATH`
+(in `~/.bashrc`, `~/.zshrc`, or the equivalent for your shell):
+
+```sh
+export PATH="$PATH:$(go env GOPATH)/bin"
+```
+
+### Check that it works
+
+```sh
+watchd version
+watchd info          # shows where the socket and the daemon log live
+```
+
+### Shell completion (optional)
+
+Tab completion covers commands, flags, and the names of your loaded projects and apps:
+
+```sh
+# bash
 watchd completion bash > ~/.local/share/bash-completion/completions/watchd
-watchd completion zsh  > "${fpath[1]}/_watchd"
+# zsh (make sure the directory is in your $fpath)
+watchd completion zsh > "${fpath[1]}/_watchd"
+# fish
 watchd completion fish > ~/.config/fish/completions/watchd.fish
 ```
 
-## Quick start
+### Update and uninstall
+
+To update, run the same install command again, then restart the daemon so it uses the new
+binary:
 
 ```sh
-cd my-project
-watchd init        # writes a commented starter watchd.lua
-$EDITOR watchd.lua
-watchd validate    # checks the config and shows what it defines
-watchd up -f       # starts everything and follows the logs (Ctrl-C detaches)
+watchd off && watchd on
 ```
 
-You never start the daemon by hand. The first command that needs it starts it in the
-background.
+To uninstall:
 
-A typical config:
+```sh
+watchd off                                    # stop everything first
+rm "$(command -v watchd)"
+rm -rf ~/.local/state/watchd                  # the daemon log
+```
+
+---
+
+## Usage guide
+
+This walkthrough takes a project with a Go API and a Node frontend from nothing to running.
+The same steps apply to any language.
+
+### 1. Create a config
+
+In the root of your project:
+
+```sh
+cd ~/work/shop
+watchd init
+```
+
+This writes `watchd.lua`, a commented starter config. It's a normal Lua file, so commit it
+with your code so your whole team gets the same setup.
+
+### 2. Describe your apps
+
+An **app** is any long-running command. Replace the starter content with your own:
 
 ```lua
 return {
 	name = "shop",
-	env_file = ".env",
 
 	apps = {
 		{
 			name = "api",
-			cmd = "go run ./cmd/api",
-			watch = { "**/*.go" },
-			ignore = { "vendor" },
-			healthcheck = { http = "http://127.0.0.1:8080/health" },
+			cmd = "go run ./cmd/api",                  -- any shell command
+			watch = { "**/*.go" },                     -- restart when Go files change
+			healthcheck = { port = 8080 },             -- ready once port 8080 accepts connections
 		},
 		{
 			name = "web",
 			cmd = "npm run dev",
-			cwd = "./web",
-			depends_on = { "api" },
-			env = { PORT = 3000, API_URL = "http://127.0.0.1:8080" },
-		},
-		{
-			name = "worker",
-			cmd = "go run ./cmd/worker",
-			depends_on = { "api" },
-			watch = { "**/*.go" },
-			restart = "on-failure",
-			max_restarts = 5,
+			cwd = "./web",                             -- relative to watchd.lua
+			depends_on = { "api" },                    -- start only after api is ready
+			env = { API_URL = "http://localhost:8080" },
 		},
 	},
 }
 ```
 
-A runnable version is in [`examples/microservices`](examples/microservices): three Go
-services with health checks, dependencies and hooks. [`examples/hello`](examples/hello) is the
-smallest possible config.
+Only `name` and `cmd` are required. Everything else is optional; see
+[App fields](#app-fields) for the full list.
+
+### 3. Check it
+
+```sh
+watchd validate
+```
+
+This lists every app as watchd understands it, or **every** mistake at once (misspelled
+fields, wrong types, unknown dependencies). It doesn't start anything.
+
+### 4. Start it
+
+```sh
+watchd up
+```
+
+That's it. The first time you run it, watchd starts its background daemon automatically. `up`
+returns right away and your apps keep running after you close the terminal.
+
+Add `-f` to watch the output as everything starts (press Ctrl-C to stop watching; the apps
+keep running):
+
+```sh
+watchd up -f
+```
+
+### 5. See what's running
+
+```console
+$ watchd ps
+PROJECT  APP  STATE              PID    UPTIME  RESTARTS
+shop     api  running (healthy)  41233  12s     0
+shop     web  running            41260  11s     0
+```
+
+If something isn't `running`, its logs usually say why:
+
+```sh
+watchd logs              # recent output of every app, merged in time order
+watchd logs api -f       # follow one app
+```
+
+Lines starting with `»` come from watchd itself: starts, exits, restarts, changed files.
+
+### 6. Write code
+
+Edit a `.go` file and save. watchd notices, waits for you to stop saving (300ms by default),
+and restarts `api`. If your change made the app crash, it retries with increasing delays.
+Fix the code and save again, and it comes straight back.
+
+### 7. Control individual apps
+
+```sh
+watchd restart api       # restart one app
+watchd stop web          # stop one app (the project stays loaded)
+watchd start web         # start it again
+```
+
+### 8. Change the config
+
+After editing `watchd.lua`, apply it:
+
+```sh
+watchd reload
+```
+
+If the new config has a mistake, `reload` shows the errors and leaves the running version
+alone.
+
+### 9. Stop
+
+```sh
+watchd down              # stop this project's apps and unload it
+watchd off               # stop every project and shut the daemon down
+```
+
+You can run any of these commands from the project directory or any subdirectory. To control
+a project from elsewhere, see [Working with many projects](#working-with-many-projects).
+
+### Try the examples
+
+[`examples/microservices`](examples/microservices) is a runnable project with three Go
+services, health checks, dependencies and hooks.
+[`examples/hello`](examples/hello) is the smallest possible config.
 
 ```sh
 cd examples/microservices && watchd up -f    # then open http://localhost:3000
 ```
+
+---
+
+## Everyday commands
+
+| I want to… | Run |
+| --- | --- |
+| Start the project in this directory | `watchd up` |
+| Start it and watch the output | `watchd up -f` |
+| Start only some apps | `watchd up api worker` |
+| See what's running here / everywhere | `watchd ps` / `watchd ps -a` |
+| See every loaded project | `watchd ls` |
+| Read or follow logs | `watchd logs` / `watchd logs -f api` |
+| Restart one app | `watchd restart api` |
+| Apply config changes | `watchd reload` |
+| Stop one app, keep the project loaded | `watchd stop api` |
+| Stop and unload this project | `watchd down` |
+| Control another project from anywhere | `watchd restart shop/api`, `watchd logs -p shop` |
+| Stop everything | `watchd down --all` or `watchd off` |
+| Find out why the daemon won't start | `watchd info`, then read the daemon log it shows |
+
+---
+
+## Recipes
+
+### Go API with a fast rebuild
+
+`go run` works, but a separate build step makes compile errors easier to spot and leaves you a
+reusable binary:
+
+```lua
+{
+	name = "api",
+	cmd = "go build -o ./tmp/api ./cmd/api && ./tmp/api",
+	watch = { "**/*.go", "go.mod" },
+	ignore = { "tmp" },
+	healthcheck = { http = "http://127.0.0.1:8080/healthz" },
+}
+```
+
+### Node / Vite / Next.js frontend
+
+Dev servers like Vite and Next.js already reload in the browser when you edit code, so don't
+set `watch` for the source files. Let watchd keep the process alive, and restart it only when
+dependencies or config change:
+
+```lua
+{
+	name = "web",
+	cmd = "npm run dev",
+	cwd = "./web",
+	watch = { "package.json", "vite.config.*" },
+	env = { PORT = 3000 },
+	healthcheck = { port = 3000 },
+}
+```
+
+### Python (Django, Flask, FastAPI)
+
+Turn off the framework's own reloader and let watchd do the restarting, so you don't get two
+reloaders fighting:
+
+```lua
+{
+	name = "django",
+	cmd = "python manage.py runserver --noreload 0.0.0.0:8000",
+	cwd = "./backend",
+	watch = { "**/*.py" },
+	ignore = { ".venv", "__pycache__" },
+	env_file = "backend/.env",
+	healthcheck = { port = 8000 },
+}
+```
+
+Because apps inherit the environment of the shell that ran `watchd up`, activate your
+virtualenv first. Or point at its Python directly: `cmd = ".venv/bin/python manage.py ..."`.
+
+### Local Postgres and Redis (without Docker)
+
+Make other apps depend on them so they start only once the database accepts connections:
+
+```lua
+{
+	name = "postgres",
+	cmd = "postgres -D ./.data/pg -p 5432",
+	healthcheck = { cmd = "pg_isready -h 127.0.0.1 -p 5432", interval = 1 },
+	stop_signal = "SIGINT",          -- Postgres "fast shutdown"
+	stop_timeout = 30,
+},
+{
+	name = "redis",
+	cmd = "redis-server --port 6379 --save ''",
+	healthcheck = { cmd = "redis-cli -p 6379 ping" },
+},
+{
+	name = "api",
+	cmd = "go run ./cmd/api",
+	depends_on = { "postgres", "redis" },
+},
+```
+
+(Create the data directory once with `initdb -D ./.data/pg`.)
+
+### Using Docker for some services
+
+watchd can supervise `docker run` like any other command. Use `--rm` and a fixed container name
+so restarts don't pile up containers:
+
+```lua
+{
+	name = "db",
+	cmd = "docker run --rm --name shop-db -p 5432:5432 -e POSTGRES_PASSWORD=dev postgres:16",
+	healthcheck = { port = 5432 },
+	stop_timeout = 20,
+}
+```
+
+### Apps you only need sometimes
+
+`autostart = false` keeps an app out of a plain `watchd up`. Start it when you need it:
+
+```lua
+{ name = "storybook", cmd = "npm run storybook", cwd = "./web", autostart = false },
+```
+
+```sh
+watchd start storybook
+```
+
+### Scripts that run once
+
+For setup steps such as migrations or code generation, use `restart = "never"`. A clean exit
+shows up as `exited (exit 0)` in `watchd ps`:
+
+```lua
+{ name = "migrate", cmd = "go run ./cmd/migrate up", restart = "never", depends_on = { "postgres" } },
+```
+
+### Many similar services
+
+The config is Lua, so generate repetitive entries with a loop. See [Lua helpers](#lua-helpers)
+for an example that builds one app per service in a monorepo.
+
+### Personal overrides without editing the shared config
+
+Read values from your environment, with defaults:
+
+```lua
+local api_port = watchd.env("API_PORT", "8080")
+```
+
+```sh
+API_PORT=9090 watchd up      # or: export API_PORT=9090 in your shell profile
+```
+
+---
 
 ## Working with many projects
 
@@ -435,6 +728,54 @@ loginctl enable-linger "$USER"   # keep it running when you're logged out
 
 Projects aren't remembered across daemon restarts yet, so run `watchd up` for each project
 once the daemon is up (from a script or an `ExecStartPost=` line).
+
+## Troubleshooting
+
+**An app keeps restarting, or shows `failed`.**
+Run `watchd logs APP`. The lines just before `» exited (...)` usually show the error. `watchd ps`
+shows the exit code, and for `failed` apps the reason.
+
+**`command not found` in an app's logs, even though the command works in my terminal.**
+Apps get the environment of the shell that ran `watchd up` or `watchd reload`. If you changed
+your `PATH` (with nvm, pyenv, a virtualenv and so on) afterwards, run `watchd reload` from the
+updated shell.
+
+**`address already in use`.**
+Something else is using the port. That might be another project, a process you started by
+hand, or apps left over after the daemon was force-killed (`kill -9`). Find it with
+`lsof -i :PORT` (or `ss -ltnp | grep PORT`). Shut down with `watchd off` to avoid leftovers.
+
+**An app sits in `waiting`.**
+One of its `depends_on` apps isn't ready yet. Check `watchd ps`. A dependency with a health
+check must show `(healthy)`, so look at its logs and make sure the health check matches what
+the app actually listens on.
+
+**File changes don't trigger a restart.**
+Check that the pattern is relative to the app's `cwd`. A pattern without `/` matches file names
+at any depth, while `src/*.ts` matches only directly inside `src/`. The file also mustn't be
+excluded by `ignore`. `watchd validate` shows the patterns, and `watchd logs APP` shows
+`» changed ...` when a change is noticed.
+
+**`too many directories to watch`.**
+Linux limits how many directories one user can watch. Add big directories (`node_modules`,
+`vendor`, `target`, build output) to `ignore`, or raise the limit:
+`sudo sysctl fs.inotify.max_user_watches=524288`.
+
+**`daemon is not running` or `the daemon did not start`.**
+Run `watchd info` to see the daemon's state and log location, then read that log. Running
+`watchd daemon` in the foreground shows errors directly.
+
+**`socket path ... is too long`.**
+Unix socket paths are limited to about 100 characters. Set `WATCHD_RUNTIME_DIR` to a shorter
+directory, for example `export WATCHD_RUNTIME_DIR=/tmp/watchd-$USER`.
+
+**`several projects are loaded`.**
+You ran a command outside any project directory while more than one project is loaded. Add
+`-p NAME`, use `PROJECT/APP`, or `cd` into the project.
+
+**`refusing to load it ... world-writable`.**
+Any user on the machine could edit that file. Fix it with `chmod o-w watchd.lua` (or the env
+file named in the message).
 
 ## Architecture
 
