@@ -315,6 +315,7 @@ func (a *App) loop(ctx context.Context, done chan struct{}) {
 			return
 		case reason := <-a.restartCh:
 			a.sys("restarting: %s", reason)
+			crashes = 0 // a deliberate restart, not another crash
 		case <-time.After(delay):
 		}
 	}

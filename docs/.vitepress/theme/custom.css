@@ -1,0 +1,25 @@
+/* Brand: teal, matching the terminal UI's accent colour. */
+:root {
+  --vp-c-brand-1: #0e8a8a;
+  --vp-c-brand-2: #12a3a3;
+  --vp-c-brand-3: #0b6f6f;
+  --vp-c-brand-soft: rgba(14, 138, 138, 0.14);
+
+  --vp-home-hero-name-color: transparent;
+  --vp-home-hero-name-background: linear-gradient(120deg, #0e8a8a 20%, #3cc6a8);
+  --vp-home-hero-image-background-image: linear-gradient(-45deg, #3cc6a8 40%, #0e8a8a 60%);
+  --vp-home-hero-image-filter: blur(56px);
+}
+
+.dark {
+  --vp-c-brand-1: #3cc6c6;
+  --vp-c-brand-2: #2fb0b0;
+  --vp-c-brand-3: #229999;
+  --vp-c-brand-soft: rgba(60, 198, 198, 0.16);
+}
+
+/* Terminal-style blocks for sample output. */
+.vp-doc div[class*='language-console'] code,
+.vp-doc div[class*='language-text'] code {
+  line-height: 1.55;
+}
