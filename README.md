@@ -4,6 +4,13 @@
 
 📖 **Documentation: [omar0ali.github.io/watchd](https://omar0ali.github.io/watchd/)**
 
+> [!WARNING]
+> **watchd is in beta.** Every feature works and is covered by tests, but it's young and
+> hasn't been used widely yet. Expect rough edges, and the config format or commands may
+> change before version 1.0. Breaking changes are always listed in the
+> [release notes](https://github.com/omar0ali/watchd/releases).
+> [Please report problems.](https://github.com/omar0ali/watchd/issues)
+
 watchd runs all the pieces of a project (APIs, frontends, workers, databases you run
 natively) from one config file. It keeps them running, restarts them when their files change
 or when they crash, starts them in dependency order, and lets you control **every project on

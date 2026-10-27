@@ -42,6 +42,13 @@ features:
 
 <div class="vp-doc" style="max-width: 860px; margin: 3rem auto 0; padding: 0 24px;">
 
+::: warning watchd is in beta
+Every feature works and is covered by tests, but watchd is young and hasn't been used widely
+yet. Expect rough edges, and the config format or commands may change before version 1.0.
+[What this means](/guide/introduction#project-status) ·
+[Report a problem](https://github.com/omar0ali/watchd/issues)
+:::
+
 ## Thirty seconds to running
 
 ```console

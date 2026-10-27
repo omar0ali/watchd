@@ -1,4 +1,4 @@
-# Introduction
+# Introduction <Badge type="warning" text="beta" />
 
 watchd is a **process supervisor for development**. It runs all the pieces of a project
 (APIs, frontends, workers, databases you run natively) from one config file, and keeps
@@ -63,6 +63,25 @@ watchd runs processes directly on your machine and does **not** isolate them. Us
 development environments and simple deployments, alongside Docker rather than instead of it.
 watchd can even [supervise `docker run` commands](/guide/recipes#using-docker-for-some-services).
 :::
+
+## Project status
+
+watchd is in **beta**.
+
+- **What works:** everything described in these docs. Each feature is covered by automated
+  tests on Linux and macOS, and has been checked by running real projects.
+- **What to expect:** watchd is young and hasn't been used by many people yet, so you may hit
+  bugs that haven't been found. Please [report them](https://github.com/omar0ali/watchd/issues).
+- **What may change:** until version 1.0, a new minor version (for example `0.3` to `0.4`)
+  may change the config format or commands. Any such change is listed under **Breaking
+  changes** in the [release notes](https://github.com/omar0ali/watchd/releases), along with
+  how to update your config. Patch versions (`0.3.0` to `0.3.1`) only fix bugs.
+
+Version **1.0** will mean the config format and commands are stable. Breaking changes after
+that need a new major version. It's planned once watchd has been used on real projects for a
+while, and once the gaps listed in the
+[roadmap](https://github.com/omar0ali/watchd#limitations-and-roadmap) are filled, such as
+projects surviving a daemon restart.
 
 ## Next steps
 

@@ -5,6 +5,11 @@ because it is built in.
 
 **Supported systems:** Linux and macOS, on Intel (amd64) and ARM (arm64).
 
+::: tip Beta software
+watchd is in [beta](/guide/introduction#project-status). Before upgrading, check the
+[release notes](https://github.com/omar0ali/watchd/releases) for **Breaking changes**.
+:::
+
 ## Download a prebuilt binary
 
 Every [release](https://github.com/omar0ali/watchd/releases) has archives for each system.
