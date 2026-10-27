@@ -947,3 +947,8 @@ GitHub Actions (`ci:`, which don't release).
   `watchd off` (or `SIGTERM`) for a clean stop.
 - Ideas: restart an app when it turns unhealthy, `watchd exec APP -- cmd` to run a command
   with an app's environment, a TUI dashboard, and per-app resource limits.
+
+## License
+
+watchd is released under the [MIT License](LICENSE). You're free to use, change and share it,
+including commercially, as long as you keep the copyright notice.

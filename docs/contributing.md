@@ -1,6 +1,8 @@
 # Contributing
 
-Contributions are welcome: bug reports, documentation fixes, and code.
+Contributions are welcome: bug reports, documentation fixes, and code. watchd is released
+under the [MIT License](https://github.com/omar0ali/watchd/blob/main/LICENSE), and by
+contributing you agree that your contributions are licensed under it too.
 
 ## Development setup
 

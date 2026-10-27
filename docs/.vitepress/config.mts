@@ -75,8 +75,8 @@ export default defineConfig({
       text: 'Edit this page on GitHub',
     },
     footer: {
-      message: 'A process supervisor for local development, configured in Lua.',
-      copyright: `<a href="${repo}">github.com/omar0ali/watchd</a>`,
+      message: `Released under the <a href="${repo}/blob/main/LICENSE">MIT License</a>.`,
+      copyright: 'Copyright © 2026 Omar BaGunaid',
     },
   },
 })

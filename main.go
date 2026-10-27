@@ -1,6 +1,5 @@
-/*
-Copyright © 2026 NAME HERE bajunaidomar@outlook.com
-*/
+// Copyright (c) 2026 Omar BaGunaid. Licensed under the MIT License; see LICENSE.
+
 package main
 
 import "github.com/omar0ali/watchd/cmd"
