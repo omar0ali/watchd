@@ -499,6 +499,13 @@ shows up as `exited (exit 0)` in `watchd ps`:
 { name = "migrate", cmd = "go run ./cmd/migrate up", restart = "never", depends_on = { "postgres" } },
 ```
 
+Other apps can depend on a task like this. They start once it **finishes successfully** (exit
+code 0), and keep waiting if it fails:
+
+```lua
+{ name = "api", cmd = "go run ./cmd/api", depends_on = { "migrate" } },
+```
+
 ### Many similar services
 
 The config is Lua, so generate repetitive entries with a loop. See [Lua helpers](#lua-helpers)
@@ -606,7 +613,7 @@ expanded.
 | `cwd` | string | config directory | Working directory. Watch patterns are relative to it too. |
 | `env` | table | `{}` | Extra environment variables. Numbers and booleans are converted to strings. |
 | `env_file` | string or list | none | Dotenv file(s) for this app. |
-| `depends_on` | list | `{}` | Apps that must be **ready** before this one starts. See [How supervision works](#how-supervision-works). |
+| `depends_on` | list | `{}` | Apps that must be **ready** before this one starts: running (and healthy, if they have a health check), or finished with exit code 0. See [How supervision works](#how-supervision-works). |
 | `watch` | string or list | none | Restart when matching files change. Leave it out to disable watching. |
 | `ignore` | string or list | none | Files and directories to skip. `.git`, editor swap files and similar are always ignored. |
 | `debounce` | duration | `"300ms"` | How long to wait after the last change before restarting. |
@@ -756,7 +763,7 @@ return { apps = { common.go_service("api", 8080), common.go_service("auth", 8081
   `stop_timeout`, then sends `SIGKILL`. Anything the command started (the compiled binary
   behind `go run`, the node process behind `npm run`) is stopped with it.
 - **Order**: `up` starts dependencies first. Each dependent waits until its dependencies are
-  ready (running, and healthy if they have a health check). `down` and `stop` stop dependents
+  ready (running and healthy, or finished with exit code 0). `down` and `stop` stop dependents
   before their dependencies.
 - **Logs**: watchd keeps the last 2000 lines per app in memory. They are lost when the project
   is unloaded or the daemon stops.

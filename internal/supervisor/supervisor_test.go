@@ -160,6 +160,29 @@ func TestDependsOnWaitsForHealthcheck(t *testing.T) {
 	}
 }
 
+func TestDependsOnCompletedTask(t *testing.T) {
+	p, _ := newProject(t, `return { apps = {
+		{ name = "migrate", cmd = "sleep 0.2", restart = "never" },
+		{ name = "api", cmd = "sleep 300", depends_on = { "migrate" } },
+		{ name = "broken", cmd = "exit 1", restart = "never" },
+		{ name = "worker", cmd = "sleep 300", depends_on = { "broken" } },
+	} }`)
+	p.Up(nil)
+
+	// A task that finished with exit code 0 satisfies its dependents.
+	waitFor(t, "api running", 3*time.Second, func() bool { return status(p, "api").State == api.StateRunning })
+	if s := status(p, "migrate").State; s != api.StateExited {
+		t.Errorf("migrate state = %s, want exited", s)
+	}
+
+	// A failed task does not.
+	waitFor(t, "broken failed", 3*time.Second, func() bool { return status(p, "broken").State == api.StateFailed })
+	time.Sleep(300 * time.Millisecond)
+	if s := status(p, "worker").State; s != api.StateWaiting {
+		t.Errorf("worker state = %s, want waiting", s)
+	}
+}
+
 func TestFileChangeRestarts(t *testing.T) {
 	p, dir := newProject(t, `return { apps = { {
 		name = "a", cmd = "sleep 300", watch = { "*.txt" }, debounce = "50ms",

@@ -50,7 +50,7 @@ type hooks struct {
 // Load evaluates the config at path and validates it. The returned project
 // keeps the Lua state alive for hooks; call Close when done with it.
 func Load(path string, opts Options) (*Project, error) {
-	path, err := filepath.Abs(path)
+	path, err := Canonical(path)
 	if err != nil {
 		return nil, err
 	}

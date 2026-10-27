@@ -176,6 +176,44 @@ func TestRequireFromConfigDir(t *testing.T) {
 	}
 }
 
+// The same folder reached through a symlink must resolve to the same config
+// path, or the daemon would treat it as a different project.
+func TestSymlinkedPathsResolveToSameConfig(t *testing.T) {
+	root := t.TempDir()
+	real := filepath.Join(root, "real", "proj")
+	if err := os.MkdirAll(filepath.Join(real, "sub"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(real, DefaultFile), []byte(`return { apps = { { name = "a", cmd = "x" } } }`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	link := filepath.Join(root, "link")
+	if err := os.Symlink(filepath.Join(root, "real"), link); err != nil {
+		t.Fatal(err)
+	}
+
+	viaReal, err := Find(filepath.Join(real, "sub"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	viaLink, err := Find(filepath.Join(link, "proj", "sub"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if viaReal != viaLink {
+		t.Errorf("Find: %s != %s", viaReal, viaLink)
+	}
+
+	p, err := Load(filepath.Join(link, "proj", DefaultFile), Options{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer p.Close()
+	if p.Path != viaReal {
+		t.Errorf("Load path = %s, want %s", p.Path, viaReal)
+	}
+}
+
 func TestRejectsWorldWritable(t *testing.T) {
 	p := writeConfig(t, `return { apps = { { name = "a", cmd = "x" } } }`)
 	if err := os.Chmod(p, 0o666); err != nil {

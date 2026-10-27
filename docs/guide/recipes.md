@@ -165,6 +165,28 @@ shows as `exited (exit 0)` in `watchd ps`:
 },
 ```
 
+## Run a task before starting an app
+
+An app can depend on a one-off task. It starts once the task **finishes successfully**
+(exit code 0), similar to Docker Compose's `service_completed_successfully`:
+
+```lua
+{ name = "postgres", cmd = "postgres -D ./.data/pg", healthcheck = { cmd = "pg_isready -h 127.0.0.1" } },
+{ name = "migrate",  cmd = "go run ./cmd/migrate up", restart = "never", depends_on = { "postgres" } },
+{ name = "api",      cmd = "go run ./cmd/api", depends_on = { "migrate" } },
+```
+
+The order is: `postgres` starts → once healthy, `migrate` runs → once it exits with code 0,
+`api` starts.
+
+If the migration fails, `migrate` shows as `failed` and `api` keeps `waiting`. Fix the
+problem and run `watchd restart migrate`. When it succeeds, `api` starts by itself.
+
+::: tip
+Use `restart = "never"` (or the default `"on-failure"`) for tasks. With `"always"`, the task
+would run again every time it finishes.
+:::
+
 ## Many similar services
 
 The config is Lua, so you can generate repetitive entries with a loop:

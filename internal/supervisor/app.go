@@ -90,11 +90,18 @@ func (a *App) Active() bool {
 }
 
 // Ready reports whether dependents may start: the process is running and,
-// if the app has a healthcheck, it passed.
+// if the app has a healthcheck, it passed; or it ran to completion with exit
+// code 0 (a one-off task such as a migration).
 func (a *App) Ready() bool {
 	a.mu.Lock()
 	defer a.mu.Unlock()
-	return a.state == api.StateRunning && (a.spec.Health == nil || a.health == api.HealthHealthy)
+	switch a.state {
+	case api.StateRunning:
+		return a.spec.Health == nil || a.health == api.HealthHealthy
+	case api.StateExited:
+		return a.exitCode != nil && *a.exitCode == 0
+	}
+	return false
 }
 
 // Start begins supervision. It returns false if already started.

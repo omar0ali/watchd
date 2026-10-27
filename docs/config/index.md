@@ -31,6 +31,22 @@ To use a different file, pass `-c`:
 watchd up -c ~/work/shop/dev.watchd.lua
 ```
 
+### Paths are remembered, not your terminal's location
+
+When a project is loaded, watchd records the **full, real path** of its config file (with
+symlinks resolved). Everything else is worked out from there: `cwd` and `env_file` are
+relative to the config's folder, and every app runs in its own `cwd`, whichever directory
+you ran `watchd up` from. The daemon itself doesn't depend on any terminal's location.
+
+So all of these refer to the same loaded project:
+
+```sh
+cd ~/work/shop && watchd restart api            # the project's folder
+cd ~/work/shop/web/src && watchd restart api    # any folder inside it
+cd /mnt/data/work/shop && watchd restart api    # the same folder through its real path, if ~/work is a symlink
+watchd restart shop/api                         # anywhere, by name
+```
+
 ## Project fields
 
 | Field | Type | Default | Description |

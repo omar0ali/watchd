@@ -46,6 +46,7 @@ One of its [`depends_on`](/config/apps#depends-on) apps isn't ready. Check `watc
 - a dependency with a health check must show `(healthy)`. Look at its logs and make sure
   the check matches what the app really listens on: port, host and path.
 - a dependency that's `stopped` or `failed` never becomes ready. Start it or fix it.
+  (A dependency that `exited` with code 0, such as a finished migration, counts as ready.)
 
 ## File changes don't trigger a restart
 

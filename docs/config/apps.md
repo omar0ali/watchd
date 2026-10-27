@@ -76,8 +76,15 @@ Apps that must be **ready** before this one starts:
 depends_on = { "postgres", "api" }
 ```
 
-"Ready" means the dependency is running and, if it has a [health check](#healthcheck), that
-the check passed. While it waits, the app shows as `waiting` in `watchd ps`.
+A dependency is ready when either:
+
+- it's **running** and, if it has a [health check](#healthcheck), the check passed, or
+- it **finished successfully**: it exited with code 0 and isn't going to be restarted. This
+  is for one-off tasks like migrations; see
+  [Run a task before starting an app](/guide/recipes#run-a-task-before-starting-an-app).
+
+While it waits, the app shows as `waiting` in `watchd ps`. A dependency that failed never
+becomes ready, so its dependents keep waiting until you fix it.
 
 Starting an app also starts its dependencies: `watchd up web` starts `api` first if `web`
 depends on it. Unknown names and cycles are reported by `watchd validate`.

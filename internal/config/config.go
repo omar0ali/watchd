@@ -102,7 +102,19 @@ func (p *Project) App(name string) *App {
 	return nil
 }
 
+// Canonical returns the absolute path of p with symlinks resolved. Projects
+// are identified by their config path, so the same folder reached through a
+// symlink and through its real path must give the same answer.
+func Canonical(p string) (string, error) {
+	abs, err := filepath.Abs(p)
+	if err != nil {
+		return "", err
+	}
+	return filepath.EvalSymlinks(abs)
+}
+
 // Find looks for DefaultFile in dir and its parents, like git does for .git.
+// The result is canonical (see Canonical).
 func Find(dir string) (string, error) {
 	dir, err := filepath.Abs(dir)
 	if err != nil {
@@ -111,7 +123,7 @@ func Find(dir string) (string, error) {
 	for {
 		p := filepath.Join(dir, DefaultFile)
 		if fi, err := os.Stat(p); err == nil && !fi.IsDir() {
-			return p, nil
+			return Canonical(p)
 		}
 		parent := filepath.Dir(dir)
 		if parent == dir {

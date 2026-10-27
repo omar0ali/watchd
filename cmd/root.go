@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
-	"path/filepath"
 	"syscall"
 	"time"
 
@@ -59,14 +58,7 @@ func init() {
 // missing config is not an error and "" is returned.
 func configPath(required bool) (string, error) {
 	if flagConfig != "" {
-		p, err := filepath.Abs(flagConfig)
-		if err != nil {
-			return "", err
-		}
-		if _, err := os.Stat(p); err != nil {
-			return "", err
-		}
-		return p, nil
+		return config.Canonical(flagConfig)
 	}
 	cwd, err := os.Getwd()
 	if err != nil {

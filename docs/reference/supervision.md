@@ -94,8 +94,9 @@ After an app exits on its own, watchd also kills anything left in its process gr
 ## Start and stop order
 
 - `up` and `start` start dependencies before the apps that need them.
-- An app waits until all of its dependencies are **ready**: running, and healthy if they have
-  a health check. While waiting, its state is `waiting`.
+- An app waits until all of its dependencies are **ready**: running (and healthy, if they have
+  a health check), or finished successfully with exit code 0. While waiting, its state is
+  `waiting`.
 - `down`, `stop` and `off` stop apps in reverse order: dependents before their dependencies.
 - Apps without dependencies on each other start in parallel.
 
