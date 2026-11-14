@@ -11,7 +11,12 @@ import (
 
 func writeConfig(t *testing.T, body string) string {
 	t.Helper()
-	dir := t.TempDir()
+	// Load resolves symlinks, and on macOS t.TempDir() is under /var, a
+	// symlink to /private/var. Use the real path so comparisons match.
+	dir, err := filepath.EvalSymlinks(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
 	p := filepath.Join(dir, DefaultFile)
 	if err := os.WriteFile(p, []byte(body), 0o644); err != nil {
 		t.Fatal(err)
